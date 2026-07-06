@@ -1,0 +1,209 @@
+.sy-page { width: 100%; min-height: 100vh; }
+.sy-main {
+  min-height: calc(100vh - var(--header-height));
+  background: var(--bg);
+}
+.sy-content {
+  padding: 20px;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.sy-card {
+  border-radius: 10px;
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+}
+.sy-card-header { padding: 16px 20px; }
+.sy-card-table { padding: 0; }
+.sy-card-history { padding: 14px 18px; }
+
+.sy-header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.sy-title {
+  font-size: 17px;
+  font-weight: 600;
+  color: #0f172a;
+  margin: 0;
+  letter-spacing: -0.2px;
+}
+.sy-updated {
+  font-size: 12px;
+  color: #0d9488;
+  font-weight: 500;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 3px;
+}
+
+.sy-scan-btn {
+  background: #0d9488 !important;
+  border-color: #0d9488 !important;
+  font-weight: 500;
+  border-radius: 7px;
+}
+.sy-scan-btn:hover {
+  background: #0f766e !important;
+  border-color: #0f766e !important;
+}
+
+.sy-rank {
+  font-size: 13px;
+  font-weight: 600;
+  color: #64748b;
+  font-variant-numeric: tabular-nums;
+}
+
+.sy-keyword {
+  color: #0f172a;
+  font-weight: 500;
+  text-decoration: none;
+  font-size: 13.5px;
+}
+.sy-keyword:hover {
+  color: #0d9488;
+}
+
+.sy-url {
+  color: #94a3b8;
+  font-size: 12px;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.sy-url:hover {
+  color: #0d9488;
+}
+
+.sy-trend-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 1px 7px;
+  border-radius: 5px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.1px;
+}
+.sy-trend-up { background: #fef2f2; color: #dc2626; }
+.sy-trend-down { background: #f0fdf4; color: #16a34a; }
+.sy-trend-new { background: #eff6ff; color: #2563eb; }
+
+.ti-up { color: #dc2626; }
+.ti-down { color: #16a34a; }
+.ti-new { color: #2563eb; }
+.ti-same { color: #94a3b8; }
+
+.sy-trend-text { font-weight: 600; font-size: 12.5px; }
+.sy-trend-text-up { color: #dc2626; }
+.sy-trend-text-down { color: #16a34a; }
+.sy-trend-text-new { color: #2563eb; }
+.sy-trend-text-same { color: #94a3b8; }
+
+.sy-stat { border-radius: 10px; }
+.sy-stat .ant-statistic-title { font-size: 12.5px; color: #64748b; }
+.sy-stat .ant-statistic-content { font-size: 22px !important; }
+.sy-stat-up .ant-statistic-content { color: #dc2626 !important; }
+.sy-stat-down .ant-statistic-content { color: #16a34a !important; }
+.sy-stat-new .ant-statistic-content { color: #2563eb !important; }
+
+.sy-history-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: #374151;
+  margin: 0 0 10px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.sy-history-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.sy-modal-title { font-weight: 600; }
+.sy-desc .ant-descriptions-header { margin-bottom: 10px; }
+.sy-desc .ant-descriptions-item-label { font-weight: 500; background: #f8fafc !important; }
+
+.rb-product-select {
+  width: 120px;
+}
+
+.rb-keyword-input {
+  width: 190px;
+}
+
+.rb-filter-input {
+  width: 170px;
+}
+
+.rb-product-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.rb-product-cell span,
+.rb-product-cell p {
+  color: #94a3b8;
+  font-size: 11.5px;
+}
+
+.rb-product-cell p {
+  margin: 0;
+  line-height: 1.4;
+}
+
+.rb-competition-card {
+  margin-bottom: 14px;
+}
+
+.rb-competition-card .ant-card-body {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 24px 48px;
+}
+
+.rb-competition-card .ant-card-body > div {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.rb-competition-card span {
+  color: #64748b;
+  font-size: 12px;
+}
+
+.rb-competition-card strong {
+  color: #0f172a;
+  font-size: 16px;
+}
+
+.rb-history-tag {
+  padding: 3px 9px;
+  border-radius: 6px;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.rb-source-note {
+  margin: 12px 2px 0;
+  color: #94a3b8;
+  font-size: 11.5px;
+}
+
+@media (max-width: 600px) {
+  .rb-keyword-input,
+  .rb-filter-input {
+    width: 160px;
+  }
+}

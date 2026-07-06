@@ -1,0 +1,105 @@
+.sy-topbar {
+  position: fixed;
+  inset: 0 0 auto;
+  z-index: 100;
+  height: var(--header-height);
+  padding: 0 24px;
+  display: flex;
+  align-items: center;
+  gap: 36px;
+  background: #fff;
+  border-bottom: 1px solid var(--border);
+  line-height: normal;
+}
+
+.sy-brand {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  flex-shrink: 0;
+}
+
+.sy-brand-icon {
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  background: linear-gradient(135deg, #0d9488, #14b8a6);
+}
+
+.sy-brand-text {
+  color: #0f172a;
+  font-size: 16px;
+  font-weight: 750;
+  letter-spacing: -0.3px;
+}
+
+.sy-brand-text span {
+  color: var(--primary);
+}
+
+.sy-tabs {
+  align-self: stretch;
+  display: flex;
+  align-items: stretch;
+  gap: 6px;
+}
+
+.sy-tab {
+  position: relative;
+  min-width: 150px;
+  padding: 0 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #64748b;
+  font-size: 13.5px;
+  font-weight: 600;
+  text-decoration: none;
+  transition: color 0.15s, background 0.15s;
+}
+
+.sy-tab:hover {
+  color: var(--primary);
+  background: #f8fafc;
+}
+
+.sy-tab-active {
+  color: var(--primary);
+}
+
+.sy-tab-active::after {
+  content: '';
+  position: absolute;
+  right: 18px;
+  bottom: 0;
+  left: 18px;
+  height: 2px;
+  border-radius: 2px 2px 0 0;
+  background: var(--primary);
+}
+
+@media (max-width: 600px) {
+  .sy-topbar {
+    padding: 0 12px;
+    gap: 10px;
+  }
+
+  .sy-brand-text {
+    display: none;
+  }
+
+  .sy-tabs {
+    flex: 1;
+  }
+
+  .sy-tab {
+    min-width: 0;
+    flex: 1;
+    padding: 0 8px;
+    font-size: 12.5px;
+  }
+}

@@ -1,0 +1,8 @@
+.app-shell {
+  min-height: 100vh;
+  background: var(--bg);
+}
+
+.app-content {
+  padding-top: var(--header-height);
+}
