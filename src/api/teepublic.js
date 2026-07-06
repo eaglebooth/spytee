@@ -4,6 +4,7 @@ const DIRECTORY_MARKER = 'automatically generated based on tag usage';
 const TAG_LINK_PATTERN = /^\[([^\]]+)\]\((https?:\/\/www\.teepublic\.com\/t-shirts\/[^)\s]+)(?:\s+"[^"]*")?\)$/;
 const MAIN_TAG_PATTERN = /^Main Tag:\s+\[([^\]]+)\]\((https?:\/\/www\.teepublic\.com\/[^)\s]+)\)$/;
 const PRODUCT_PATTERN = /^## \[([^\]]+)\]\((https?:\/\/www\.teepublic\.com\/[^)\s]+)\)$/;
+const CARD_PATTERN = /^\[!\[Image \d+: ([^\]]+)\]\([^)]+\)\]\((https?:\/\/www\.teepublic\.com\/[^)\s]+)\)$/;
 
 export const TEEPUBLIC_PRODUCTS = [
   { value: 't-shirts', label: 'T-Shirt' },
@@ -56,6 +57,67 @@ function parseProductSection(source, product, sectionTitle, nextSectionTitle) {
     (line, index) => index > startIndex && line.trim() === `## ${nextSectionTitle}`
   );
 
+  if (startIndex === -1) {
+    const cards = parseProductCards(lines, product);
+    const slice = sectionTitle === 'Best Sellers' ? cards.slice(0, 16) : cards.slice(16, 44);
+
+    if (slice.length === 0) {
+      throw new Error(`TeePublic hiện không trả về sản phẩm ${sectionTitle}.`);
+    }
+
+    return slice.map((item, index) => ({ ...item, rank: index + 1 }));
+  }
+
+  return parseMarkedProductSection(lines, product, sectionTitle, startIndex, endIndex);
+}
+
+function parseProductCards(lines, product) {
+  const cards = [];
+  const seen = new Set();
+
+  for (let index = 0; index < lines.length; index += 1) {
+    const cardMatch = lines[index].trim().match(CARD_PATTERN);
+    if (!cardMatch) continue;
+
+    const url = cardMatch[2].replace('http://', 'https://');
+    const uniqueKey = `${url}-${cards.length}`;
+    if (seen.has(uniqueKey)) continue;
+    seen.add(uniqueKey);
+
+    const chunk = lines.slice(index + 1, index + 18).map((line) => line.trim());
+    const descriptionLine = chunk.find((line) => line.startsWith('Description:'));
+    const tagsLine = chunk.find((line) => line.startsWith('Tags:'));
+    const headingIndex = chunk.findIndex((line) => line.match(PRODUCT_PATTERN));
+    const author = headingIndex >= 0 && chunk[headingIndex + 2]?.startsWith('by ')
+      ? chunk[headingIndex + 2].slice(3)
+      : '';
+    const title = cardMatch[1].trim();
+    const description = descriptionLine?.slice('Description:'.length).trim() || '';
+    const relatedTags = tagsLine
+      ? tagsLine
+        .slice(5)
+        .split(',')
+        .map((tag) => tag.trim())
+        .filter(Boolean)
+      : [];
+
+    cards.push({
+      key: `${url}-${cards.length + 1}`,
+      rank: cards.length + 1,
+      product,
+      title,
+      url,
+      author,
+      mainTag: description || title.replace(/\s+(T-Shirt|Hoodie|Sticker|Mug)$/i, ''),
+      mainTagUrl: url,
+      relatedTags,
+    });
+  }
+
+  return cards;
+}
+
+function parseMarkedProductSection(lines, product, sectionTitle, startIndex, endIndex) {
   if (startIndex === -1) {
     throw new Error(`Không tìm thấy danh sách ${sectionTitle}.`);
   }
@@ -128,7 +190,8 @@ async function fetchProductPage(product) {
     throw new Error('Loại sản phẩm không hợp lệ.');
   }
 
-  const { data } = await axios.get(`/api/teepublic-best-sellers/${product}`, {
+  const { data } = await axios.get('/api/teepublic-products', {
+    params: { product },
     responseType: 'text',
     timeout: 30000,
   });
