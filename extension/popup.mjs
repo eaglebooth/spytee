@@ -1,5 +1,6 @@
 import { scanTeePublicPage } from './scan.mjs';
 import { summarize, toCsv } from './research.mjs';
+import { showTeePublicPanel } from './panel.mjs';
 
 const $ = (id) => document.getElementById(id);
 const STORAGE_KEY = 'spyteeTeepublicScans';
@@ -51,11 +52,31 @@ $('scan').addEventListener('click', async () => {
     await chrome.storage.local.set({ [STORAGE_KEY]: history });
     renderHistory();
     render(result);
+    const panelResults = await chrome.scripting.executeScript({
+      target: { tabId: tab.id },
+      func: showTeePublicPanel,
+      args: [result, summarize(result.products)],
+    });
+    if (!panelResults[0]?.result?.shown) throw new Error('Đã lưu kết quả; chưa mở được bảng. Hãy quét lại trang hiện tại.');
+    status('Đã hiển thị bảng SPYTEE ngay trên trang TeePublic.');
   } catch (error) {
     status(error.message, true);
   } finally {
     $('scan').disabled = false;
   }
+});
+
+$('show-panel').addEventListener('click', async () => {
+  if (!current) return;
+  try {
+    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    const results = await chrome.scripting.executeScript({
+      target: { tabId: tab.id }, func: showTeePublicPanel,
+      args: [current, summarize(current.products)],
+    });
+    if (!results[0]?.result?.shown) throw new Error('Hãy quét lại trang hiện tại để hiển thị bảng.');
+    status('Đã mở bảng trên trang TeePublic.');
+  } catch (error) { status(error.message, true); }
 });
 
 function download(body, type, suffix) {

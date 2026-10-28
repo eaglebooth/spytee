@@ -1,4 +1,4 @@
-# SPYTEE TeePublic Extension v0.1
+# SPYTEE TeePublic Extension v0.2
 
 ## Cài vào Chrome
 
@@ -14,9 +14,10 @@
 2. Đợi trang tải xong. Nếu có xác minh, hoàn thành trong trình duyệt.
 3. Cuộn để tải thêm sản phẩm nếu cần.
 4. Bấm icon SPYTEE rồi **Quét trang hiện tại**.
-5. Xem Top Tags và người bán đọc được. Extension giữ 30 phiên gần nhất trên trình duyệt này.
-6. Bấm **Xuất JSON cho SPYTEE** hoặc **Xuất CSV**.
-7. Mở dashboard `/teepublic-extension`, bấm **Nhập JSON từ extension**, chọn file vừa tải.
+5. Bảng SPYTEE hiện ngay bên phải trang TeePublic: Top Tags, người bán, sản phẩm và ô lọc. Có nút Copy Top Tags, Thu gọn và Đóng. Không cần xuất JSON để xem dữ liệu.
+6. Bấm **Hiện bảng trên trang TeePublic** trong popup để mở lại kết quả của cùng trang. Khi đổi trang, cần quét lại. Extension giữ 30 phiên gần nhất trên trình duyệt này.
+7. Nếu cần lưu sang dashboard, bấm **Xuất JSON cho SPYTEE** hoặc **Xuất CSV**.
+8. Mở dashboard `/teepublic-extension`, bấm **Nhập JSON từ extension**, chọn file vừa tải.
 
 Khi phát triển local, chạy `npm.cmd run dev` trong thư mục dự án và mở URL Vite in ra, thêm `/teepublic-extension`.
 Link production trong popup chỉ dùng được sau khi bản dashboard mới đã được deploy.

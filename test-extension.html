@@ -3,6 +3,7 @@
 import { scanTeePublicPage } from './extension/scan.mjs';
 import { summarize, toCsv } from './extension/research.mjs';
 import { validateScan } from './src/utils/extensionImport.mjs';
+import { showTeePublicPanel } from './extension/panel.mjs';
 const results = [];
 function check(name, fn) {
   try { fn(); results.push('PASS ' + name); }
@@ -70,6 +71,40 @@ check('CSV escapes quotes and neutralizes formulas', () => {
   const result = scan(card(107, '=SUM(1)', []));
   result.products[0].title = '=SUM(1)';
   assert(toCsv(result.products).includes("\"'=SUM(1)\""));
+});
+check('panel replaces itself, filters products, collapses and closes', () => {
+  const result = scan(card(108, 'Visible design', ['cat'], 'Alice'));
+  const doc = document.implementation.createHTMLDocument('Panel fixture');
+  const run = new Function('document', 'location', 'scan', 'summary', `return (${showTeePublicPanel.toString()})(scan, summary);`);
+  const args = [doc, new URL(result.sourceUrl), result, summarize(result.products)];
+  run(...args);
+  run(...args);
+  assert(doc.querySelectorAll('#spytee-teepublic-panel').length === 1);
+  const host = doc.getElementById('spytee-teepublic-panel');
+  const root = host.shadowRoot;
+  assert(root.textContent.includes('Visible design') && root.textContent.includes('cat (1)'));
+  const input = root.querySelector('input');
+  input.value = 'no matches';
+  input.dispatchEvent(new Event('input'));
+  assert(root.textContent.includes('Không có sản phẩm phù hợp.'));
+  root.querySelector('header button').click();
+  assert(root.querySelector('.content').hidden);
+  root.querySelectorAll('header button')[1].click();
+  assert(!doc.getElementById('spytee-teepublic-panel'));
+});
+check('panel rejects stale scans and renders untrusted titles as text', () => {
+  const result = scan(card(109, 'Design', []));
+  result.products[0].title = '<img src=x onerror=alert(1)>';
+  result.products[0].url = 'javascript:alert(1)';
+  const doc = document.implementation.createHTMLDocument('Panel fixture');
+  const run = new Function('document', 'location', 'scan', 'summary', `return (${showTeePublicPanel.toString()})(scan, summary);`);
+  run(doc, new URL(result.sourceUrl), result, summarize(result.products));
+  const root = doc.getElementById('spytee-teepublic-panel').shadowRoot;
+  assert(!root.querySelector('img') && !root.querySelector('a'));
+  assert(root.textContent.includes('<img src=x onerror=alert(1)>'));
+  let failed = false;
+  try { run(doc, new URL('https://www.teepublic.com/mug'), result, summarize(result.products)); } catch { failed = true; }
+  assert(failed);
 });
 document.getElementById('output').textContent = results.join('\n');
 document.body.dataset.result = results.some(r => r.startsWith('FAIL')) ? 'FAIL' : 'PASS';
