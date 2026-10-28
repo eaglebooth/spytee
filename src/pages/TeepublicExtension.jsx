@@ -3,6 +3,7 @@ import { Alert, Button, Card, Empty, Input, message, Select, Space, Statistic, T
 import { Link } from 'react-router-dom';
 import { summarize } from '../../extension/research.mjs';
 import { validateScan } from '../utils/extensionImport.mjs';
+import { requestBrowserScan } from '../utils/browserBridge.mjs';
 
 const KEY = 'spytee_extension_imports_v1';
 
@@ -17,10 +18,30 @@ export default function TeepublicExtension() {
   const [history, setHistory] = useState(loadHistory);
   const [selected, setSelected] = useState(0);
   const [filter, setFilter] = useState('');
+  const [receiving, setReceiving] = useState(false);
+  const [bridgeError, setBridgeError] = useState('');
   const scan = history[selected];
   const stats = summarize(scan?.products || []);
   const products = (scan?.products || []).filter((item) =>
     [item.title, item.author, item.mainTag, ...item.tags].join(' ').toLowerCase().includes(filter.toLowerCase()));
+
+  function saveScan(input) {
+    const imported = validateScan(input);
+    const next = [imported, ...history.filter((item) => item.scannedAt !== imported.scannedAt || item.sourceUrl !== imported.sourceUrl)].slice(0, 30);
+    localStorage.setItem(KEY, JSON.stringify(next));
+    setHistory(next);
+    setSelected(0);
+    setBridgeError('');
+    message.success(`Đã nhận ${imported.products.length} sản phẩm. Ngày quét: ${new Date(imported.scannedAt).toLocaleString('vi-VN')}`);
+  }
+
+  async function receiveFromExtension() {
+    setReceiving(true);
+    setBridgeError('');
+    try { saveScan(await requestBrowserScan()); }
+    catch (error) { setBridgeError(error.message); }
+    finally { setReceiving(false); }
+  }
 
   async function importFile(event) {
     const file = event.target.files?.[0];
@@ -28,12 +49,7 @@ export default function TeepublicExtension() {
     if (!file) return;
     try {
       if (file.size > 5 * 1024 * 1024) throw new Error('File quá lớn (tối đa 5 MB).');
-      const imported = validateScan(JSON.parse(await file.text()));
-      const next = [imported, ...history.filter((item) => item.scannedAt !== imported.scannedAt || item.sourceUrl !== imported.sourceUrl)].slice(0, 30);
-      localStorage.setItem(KEY, JSON.stringify(next));
-      setHistory(next);
-      setSelected(0);
-      message.success(`Đã nhập ${imported.products.length} sản phẩm`);
+      saveScan(JSON.parse(await file.text()));
     } catch (error) {
       message.error(error.message);
     }
@@ -46,15 +62,18 @@ export default function TeepublicExtension() {
           <Space wrap>
             <h2 className="sy-title">TeePublic Extension</h2>
             <Link to="/teepublic">Về TeePublic Trend</Link>
-            <Button href="/downloads/spytee-teepublic-extension.zip" download>Tải extension Chrome (.zip)</Button>
+            <Button href="/downloads/spytee-teepublic-extension.zip?v=0.3.0" download>Tải extension Chrome 0.3 (.zip)</Button>
+            <Button type="primary" loading={receiving} onClick={receiveFromExtension}>Nhận kết quả trực tiếp từ extension</Button>
             <Button htmlType="button" onClick={() => document.getElementById('extension-json-file').click()}>Nhập JSON từ extension</Button>
             <input id="extension-json-file" type="file" accept=".json,application/json" hidden onChange={importFile} />
           </Space>
-          <p style={{ marginTop: 12 }}>Mở TeePublic → bấm icon SPYTEE → Quét trang hiện tại → Xuất JSON → nhập file tại đây.</p>
+          <p style={{ marginTop: 12 }}>Mở TeePublic → bấm icon SPYTEE → Quét trang hiện tại → quay lại đây và bấm Nhận kết quả trực tiếp từ extension. Không cần xuất JSON.</p>
           <p>Cài đặt: giải nén file ZIP → chrome://extensions → bật Developer mode → Load unpacked → chọn thư mục chứa manifest.json.</p>
+          <p>Đã cài bản cũ: giải nén đè vào thư mục extension đang dùng, bấm Reload trong chrome://extensions rồi tải lại trang SPYTEE này.</p>
           <Alert type="info" showIcon title="Dữ liệu trong mẫu trang đã quét. Tần suất tag không phải lượt tìm kiếm; thứ tự sản phẩm không mặc định là thứ hạng bán chạy." />
+          {bridgeError && <Alert type="warning" showIcon style={{ marginTop: 12 }} title={bridgeError} />}
         </Card>
-        {!scan ? <Empty description="Chưa có phiên quét. Cài extension rồi nhập file JSON." /> : <>
+        {!scan ? <Empty description="Chưa có phiên quét. Quét TeePublic bằng extension rồi bấm Nhận kết quả trực tiếp." /> : <>
           <Card className="sy-card" style={{ marginBottom: 14 }}>
             <Space wrap size={24}>
               <Statistic title="Thiết kế riêng biệt" value={stats.designs} />

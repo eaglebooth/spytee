@@ -89,6 +89,11 @@ function download(body, type, suffix) {
 }
 
 $('json').addEventListener('click', () => current && download(JSON.stringify(current, null, 2), 'application/json', 'json'));
+$('open-dashboard').addEventListener('click', async () => {
+  try {
+    await chrome.tabs.create({ url: 'https://spytee.vercel.app/teepublic-extension' });
+  } catch (error) { status(error.message, true); }
+});
 $('csv').addEventListener('click', () => current && download('\uFEFF' + toCsv(current.products), 'text/csv;charset=utf-8', 'csv'));
 $('history').addEventListener('change', () => {
   if ($('history').value !== '') render(history[Number($('history').value)]);

@@ -337,7 +337,7 @@ export default function TeepublicTrend() {
                 <p>{data.length ? 'Bảng đang giữ dữ liệu đã lưu, không phải kết quả mới của hôm nay.' : 'Không có bản quét đã lưu cho mục này.'}</p>
                 <Space wrap>
                   <a href={`https://www.teepublic.com/${product}`} target="_blank" rel="noreferrer">Mở TeePublic để quét bằng extension</a>
-                  <Link to="/teepublic-extension">Cài / mở hướng dẫn extension</Link>
+                  <Link to="/teepublic-extension">Nhận kết quả trực tiếp từ extension (không cần JSON)</Link>
                 </Space>
               </>}
             />
