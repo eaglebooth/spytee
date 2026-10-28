@@ -1,6 +1,8 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { Link } from 'react-router-dom';
 import {
   Button,
+  Alert,
   Card,
   Col,
   Empty,
@@ -52,19 +54,32 @@ function getHistory(mode, product) {
     : loadProductSnapshots(mode, product);
 }
 
+function snapshotRows(snapshot) {
+  return (snapshot?.data || []).map((item, index) => ({
+    ...item, rank: index + 1, trend: 'same', rankChange: 0,
+  }));
+}
+
 export default function TeepublicTrend() {
-  const [data, setData] = useState([]);
+  const [data, setData] = useState(() => snapshotRows(loadTeepublicSnapshots()[0]));
   const [history, setHistory] = useState(loadTeepublicSnapshots);
   const [loading, setLoading] = useState(false);
   const [searchText, setSearchText] = useState('');
   const [mode, setMode] = useState('tags');
   const [product, setProduct] = useState('t-shirts');
+  const [sourceError, setSourceError] = useState('');
+  const [displayedAt, setDisplayedAt] = useState(() => loadTeepublicSnapshots()[0]?.timestamp || null);
+  const [historical, setHistorical] = useState(true);
+  const requestId = useRef(0);
 
   const loadData = useCallback(async () => {
+    const id = ++requestId.current;
     setLoading(true);
+    setSourceError('');
     try {
       if (mode === 'tags') {
         const tags = await fetchTrendingTags();
+        if (id !== requestId.current) return;
         const snapshots = loadTeepublicSnapshots();
         const compared = compareRankings(
           tags,
@@ -75,11 +90,14 @@ export default function TeepublicTrend() {
 
         setData(compared);
         setHistory([entry, ...snapshots].slice(0, 100));
+        setDisplayedAt(entry.timestamp);
+        setHistorical(false);
         message.success(`Đã cập nhật ${tags.length} tag TeePublic`);
       } else {
         const products = mode === 'best-sellers'
           ? await fetchBestSellers(product)
           : await fetchTrendingToday(product);
+        if (id !== requestId.current) return;
         const snapshots = loadProductSnapshots(mode, product);
         const compared = compareRankings(products, snapshots, (item) => item.url);
         const entry = saveProductSnapshot(mode, product, products);
@@ -87,18 +105,20 @@ export default function TeepublicTrend() {
 
         setData(compared);
         setHistory([entry, ...snapshots].slice(0, 100));
+        setDisplayedAt(entry.timestamp);
+        setHistorical(false);
         message.success(`Đã cập nhật ${products.length} sản phẩm ${label}`);
       }
     } catch (error) {
-      message.error(`Không thể tải TeePublic Trend: ${error.message}`);
+      if (id === requestId.current) setSourceError(error.message);
     } finally {
-      setLoading(false);
+      if (id === requestId.current) setLoading(false);
     }
   }, [mode, product]);
 
   useEffect(() => {
     const timer = window.setTimeout(loadData, 0);
-    return () => window.clearTimeout(timer);
+    return () => { window.clearTimeout(timer); requestId.current += 1; };
   }, [loadData]);
 
   const filteredData = searchText
@@ -198,9 +218,9 @@ export default function TeepublicTrend() {
       dataIndex: 'mainTag',
       width: 220,
       render: (mainTag, record) => (
-        <a className="tp-main-tag" href={record.mainTagUrl} target="_blank" rel="noreferrer">
+        mainTag ? <a className="tp-main-tag" href={record.mainTagUrl || undefined} target="_blank" rel="noreferrer">
           {mainTag}
-        </a>
+        </a> : <span className="tp-muted">Chưa đọc được</span>
       ),
     },
     {
@@ -232,15 +252,27 @@ export default function TeepublicTrend() {
   ];
 
   const changeMode = (value) => {
+    requestId.current += 1;
     setMode(value);
-    setData([]);
-    setHistory(getHistory(value, product));
+    const snapshots = getHistory(value, product);
+    setData(snapshotRows(snapshots[0]));
+    setHistory(snapshots);
+    setDisplayedAt(snapshots[0]?.timestamp || null);
+    setHistorical(true);
+    setSourceError('');
+    setSearchText('');
   };
 
   const changeProduct = (value) => {
+    requestId.current += 1;
     setProduct(value);
-    setData([]);
-    setHistory(getHistory(mode, value));
+    const snapshots = getHistory(mode, value);
+    setData(snapshotRows(snapshots[0]));
+    setHistory(snapshots);
+    setDisplayedAt(snapshots[0]?.timestamp || null);
+    setHistorical(true);
+    setSourceError('');
+    setSearchText('');
   };
 
   return (
@@ -251,9 +283,9 @@ export default function TeepublicTrend() {
             <div className="sy-header-row">
               <div>
                 <h2 className="sy-title">TeePublic Trend</h2>
-                {history[0] ? (
+                {displayedAt ? (
                   <span className="sy-updated">
-                    <Clock size={12} /> Cập nhật {dayjs(history[0].timestamp).fromNow()}
+                    <Clock size={12} /> {historical ? 'Dữ liệu lịch sử: ' : 'Quét thành công: '}{dayjs(displayedAt).format('HH:mm DD/MM/YYYY')}
                   </span>
                 ) : (
                   <span className="tp-subtitle">Theo dõi tag và sản phẩm nổi bật trên TeePublic</span>
@@ -280,6 +312,7 @@ export default function TeepublicTrend() {
                 <SearchInput
                   placeholder={mode === 'tags' ? 'Tìm tag...' : 'Tìm sản phẩm, tag...'}
                   allowClear
+                  value={searchText}
                   className="tp-search"
                   onChange={(event) => setSearchText(event.target.value)}
                 />
@@ -295,6 +328,20 @@ export default function TeepublicTrend() {
               </Space>
             </div>
           </Card>
+
+          {sourceError && (
+            <Alert type="warning" showIcon style={{ marginBottom: 14 }}
+              title="Chưa lấy được dữ liệu mới từ TeePublic"
+              description={<>
+                <p>{sourceError}</p>
+                <p>{data.length ? 'Bảng đang giữ dữ liệu đã lưu, không phải kết quả mới của hôm nay.' : 'Không có bản quét đã lưu cho mục này.'}</p>
+                <Space wrap>
+                  <a href={`https://www.teepublic.com/${product}`} target="_blank" rel="noreferrer">Mở TeePublic để quét bằng extension</a>
+                  <Link to="/teepublic-extension">Cài / mở hướng dẫn extension</Link>
+                </Space>
+              </>}
+            />
+          )}
 
           {data.length > 0 && (
             <Row gutter={[12, 12]} style={{ marginBottom: 14 }}>
@@ -351,14 +398,9 @@ export default function TeepublicTrend() {
                       color={snapshot.id === history[0]?.id ? 'cyan' : 'default'}
                       className="tp-history-tag"
                       onClick={() => {
-                        setData(
-                          snapshot.data.map((item, index) => ({
-                            ...item,
-                            rank: index + 1,
-                            trend: 'same',
-                            rankChange: 0,
-                          }))
-                        );
+                        setData(snapshotRows(snapshot));
+                        setDisplayedAt(snapshot.timestamp);
+                        setHistorical(true);
                       }}
                     >
                       {dayjs(snapshot.timestamp).format('HH:mm DD/MM')}

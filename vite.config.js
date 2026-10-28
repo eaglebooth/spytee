@@ -5,7 +5,16 @@ const appProxy = {
   '/api/teepublic-tags': {
     target: 'https://r.jina.ai',
     changeOrigin: true,
-    rewrite: () => '/http://www.teepublic.com/tag-directory',
+    rewrite: () => '/https://www.teepublic.com/tag-directory',
+  },
+  '/api/teepublic-products': {
+    target: 'https://r.jina.ai',
+    changeOrigin: true,
+    rewrite: (path) => {
+      const product = new URL(path, 'http://localhost').searchParams.get('product')
+      const allowed = ['t-shirts', 'hoodie', 'stickers', 'mug']
+      return `/https://www.teepublic.com/${allowed.includes(product) ? product : 't-shirts'}`
+    },
   },
   '/api/teepublic-best-sellers/': {
     target: 'https://r.jina.ai',

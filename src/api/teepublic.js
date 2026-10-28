@@ -1,10 +1,11 @@
 import axios from 'axios';
+import { assertTeePublicSource } from '../../lib/teepublicSource.mjs';
 
 const DIRECTORY_MARKER = 'automatically generated based on tag usage';
 const TAG_LINK_PATTERN = /^\[([^\]]+)\]\((https?:\/\/www\.teepublic\.com\/t-shirts\/[^)\s]+)(?:\s+"[^"]*")?\)$/;
 const MAIN_TAG_PATTERN = /^Main Tag:\s+\[([^\]]+)\]\((https?:\/\/www\.teepublic\.com\/[^)\s]+)\)$/;
-const PRODUCT_PATTERN = /^## \[([^\]]+)\]\((https?:\/\/www\.teepublic\.com\/[^)\s]+)\)$/;
-const CARD_PATTERN = /^\[!\[Image \d+: ([^\]]+)\]\([^)]+\)\]\((https?:\/\/www\.teepublic\.com\/[^)\s]+)\)$/;
+const PRODUCT_PATTERN = /^#{1,6}\s+\[([^\]]+)\]\((https?:\/\/www\.teepublic\.com\/[^/]+\/\d+-[^)\s]+)\)$/;
+const CARD_PATTERN = /^\[!\[[^\]]*?:\s*([^\]]+)\]\([^)]+\)\]\((https?:\/\/www\.teepublic\.com\/[^/]+\/\d+-[^)\s]+)\)/;
 
 export const TEEPUBLIC_PRODUCTS = [
   { value: 't-shirts', label: 'T-Shirt' },
@@ -14,196 +15,104 @@ export const TEEPUBLIC_PRODUCTS = [
 ];
 
 export function parseTrendingTags(source) {
-  const lines = String(source).split(/\r?\n/);
+  const lines = assertTeePublicSource(source).split(/\r?\n/);
   const markerIndex = lines.findIndex((line) => line.includes(DIRECTORY_MARKER));
-
-  if (markerIndex === -1) {
-    throw new Error('Không tìm thấy danh sách tag trong dữ liệu TeePublic.');
-  }
-
+  if (markerIndex === -1) throw new Error('Không tìm thấy danh sách tag trong dữ liệu TeePublic.');
   const seen = new Set();
   const tags = [];
-
   for (const line of lines.slice(markerIndex + 1)) {
-    if (line.startsWith('## Subscribe') || line.startsWith('#### Support')) break;
-
+    if (/^#{1,6}\s+(Subscribe|Support)/.test(line)) break;
     const match = line.trim().match(TAG_LINK_PATTERN);
     if (!match) continue;
-
     const keyword = match[1].trim();
     const normalized = keyword.toLowerCase();
     if (seen.has(normalized)) continue;
-
     seen.add(normalized);
-    tags.push({
-      key: normalized,
-      rank: tags.length + 1,
-      keywords: keyword,
-      url: match[2].replace('http://', 'https://'),
-    });
+    tags.push({ key: normalized, rank: tags.length + 1, keywords: keyword, url: match[2].replace('http://', 'https://') });
   }
-
-  if (tags.length === 0) {
-    throw new Error('TeePublic hiện không trả về tag xu hướng.');
-  }
-
+  if (!tags.length) throw new Error('TeePublic hiện không trả về tag xu hướng.');
   return tags;
 }
 
-function parseProductSection(source, product, sectionTitle, nextSectionTitle) {
-  const lines = String(source).split(/\r?\n/);
-  const startIndex = lines.findIndex((line) => line.trim() === `## ${sectionTitle}`);
-  const endIndex = lines.findIndex(
-    (line, index) => index > startIndex && line.trim() === `## ${nextSectionTitle}`
-  );
-
-  if (startIndex === -1) {
-    const cards = parseProductCards(lines, product);
-    const slice = sectionTitle === 'Best Sellers' ? cards.slice(0, 16) : cards.slice(16, 44);
-
-    if (slice.length === 0) {
-      throw new Error(`TeePublic hiện không trả về sản phẩm ${sectionTitle}.`);
-    }
-
-    return slice.map((item, index) => ({ ...item, rank: index + 1 }));
-  }
-
-  return parseMarkedProductSection(lines, product, sectionTitle, startIndex, endIndex);
+function heading(line, next) {
+  const match = line.trim().match(/^#{1,6}\s+(.+?)\s*#*$/);
+  if (match && !PRODUCT_PATTERN.test(line.trim())) return match[1].trim();
+  if (/^\s*(?:={3,}|-{3,})\s*$/.test(next || '')) return line.trim();
+  return '';
 }
 
-function parseProductCards(lines, product) {
-  const cards = [];
-  const seen = new Set();
-
-  for (let index = 0; index < lines.length; index += 1) {
-    const cardMatch = lines[index].trim().match(CARD_PATTERN);
-    if (!cardMatch) continue;
-
-    const url = cardMatch[2].replace('http://', 'https://');
-    const uniqueKey = `${url}-${cards.length}`;
-    if (seen.has(uniqueKey)) continue;
-    seen.add(uniqueKey);
-
-    const chunk = lines.slice(index + 1, index + 18).map((line) => line.trim());
-    const descriptionLine = chunk.find((line) => line.startsWith('Description:'));
-    const tagsLine = chunk.find((line) => line.startsWith('Tags:'));
-    const headingIndex = chunk.findIndex((line) => line.match(PRODUCT_PATTERN));
-    const author = headingIndex >= 0 && chunk[headingIndex + 2]?.startsWith('by ')
-      ? chunk[headingIndex + 2].slice(3)
-      : '';
-    const title = cardMatch[1].trim();
-    const description = descriptionLine?.slice('Description:'.length).trim() || '';
-    const relatedTags = tagsLine
-      ? tagsLine
-        .slice(5)
-        .split(',')
-        .map((tag) => tag.trim())
-        .filter(Boolean)
-      : [];
-
-    cards.push({
-      key: `${url}-${cards.length + 1}`,
-      rank: cards.length + 1,
-      product,
-      title,
-      url,
-      author,
-      mainTag: description || title.replace(/\s+(T-Shirt|Hoodie|Sticker|Mug)$/i, ''),
-      mainTagUrl: url,
-      relatedTags,
-    });
+function parseProductSection(source, product, sectionTitle) {
+  const lines = assertTeePublicSource(source).split(/\r?\n/);
+  const start = lines.findIndex((line, index) => heading(line, lines[index + 1]).toLowerCase() === sectionTitle.toLowerCase());
+  if (start === -1) {
+    throw new Error('Nguồn hiện không có nhãn ' + sectionTitle + ' để xác định đúng danh sách. Hãy dùng extension trên trang TeePublic; ứng dụng không tự chia sản phẩm theo số lượng cố định.');
   }
-
-  return cards;
-}
-
-function parseMarkedProductSection(lines, product, sectionTitle, startIndex, endIndex) {
-  if (startIndex === -1) {
-    throw new Error(`Không tìm thấy danh sách ${sectionTitle}.`);
+  let end = lines.length;
+  for (let index = start + 1; index < lines.length; index += 1) {
+    const title = heading(lines[index], lines[index + 1]);
+    if (title && !/^by\s/i.test(title)) { end = index; break; }
   }
-
-  const section = lines.slice(startIndex + 1, endIndex === -1 ? undefined : endIndex);
   const products = [];
+  const seen = new Set();
   let current = null;
-
-  for (let index = 0; index < section.length; index += 1) {
-    const line = section[index].trim();
-    const mainTagMatch = line.match(MAIN_TAG_PATTERN);
-
-    if (mainTagMatch) {
-      current = {
-        mainTag: mainTagMatch[1],
-        mainTagUrl: mainTagMatch[2].replace('http://', 'https://'),
-        relatedTags: [],
-      };
+  const finish = () => {
+    if (!current || seen.has(current.url)) return;
+    seen.add(current.url);
+    products.push({ ...current, key: current.url, rank: products.length + 1, product });
+  };
+  for (const raw of lines.slice(start + 1, end)) {
+    const line = raw.trim();
+    const card = line.match(CARD_PATTERN);
+    const title = line.match(PRODUCT_PATTERN);
+    if (card || title) {
+      const match = card || title;
+      const url = match[2].replace('http://', 'https://');
+      if (current?.url !== url) {
+        finish();
+        current = { title: match[1], url, author: '', mainTag: '', mainTagUrl: '', relatedTags: [] };
+      } else if (title) current.title = title[1];
       continue;
     }
-
     if (!current) continue;
-
-    if (line.startsWith('Tags:')) {
-      current.relatedTags = line
-        .slice(5)
-        .split(',')
-        .map((tag) => tag.trim())
-        .filter(Boolean);
-      continue;
-    }
-
-    const productMatch = line.match(PRODUCT_PATTERN);
-    if (!productMatch) continue;
-
-    const authorLine = section.slice(index + 1).find((candidate) => candidate.trim());
-    const author = authorLine?.trim().startsWith('by ')
-      ? authorLine.trim().slice(3)
-      : '';
-
-    products.push({
-      key: productMatch[2],
-      rank: products.length + 1,
-      product,
-      title: productMatch[1],
-      url: productMatch[2].replace('http://', 'https://'),
-      author,
-      ...current,
-    });
-    current = null;
+    const mainTag = line.match(MAIN_TAG_PATTERN);
+    if (mainTag) { current.mainTag = mainTag[1]; current.mainTagUrl = mainTag[2].replace('http://', 'https://'); }
+    if (line.startsWith('Tags:')) current.relatedTags = [...new Set(line.slice(5).split(',').map((tag) => tag.trim()).filter(Boolean))];
+    if (line.startsWith('by ')) current.author = line.slice(3).trim();
   }
-
-  if (products.length === 0) {
-    throw new Error(`TeePublic hiện không trả về sản phẩm ${sectionTitle}.`);
-  }
-
+  finish();
+  if (!products.length) throw new Error('Nguồn không cung cấp sản phẩm trong mục ' + sectionTitle + '. Vui lòng thử lại sau hoặc dùng extension.');
   return products;
 }
 
 export function parseBestSellers(source, product) {
-  return parseProductSection(source, product, 'Best Sellers', 'Trending Today');
+  return parseProductSection(source, product, 'Best Sellers');
 }
 
 export function parseTrendingToday(source, product) {
-  return parseProductSection(source, product, 'Trending Today', 'More Categories');
+  return parseProductSection(source, product, 'Trending Today');
+}
+
+async function requestSource(path, params) {
+  try {
+    const { data } = await axios.get(path, { params, responseType: 'text', timeout: 30000 });
+    return assertTeePublicSource(data);
+  } catch (error) {
+    let payload = error.response?.data;
+    if (typeof payload === 'string') {
+      try { payload = JSON.parse(payload); } catch { payload = null; }
+    }
+    if (payload?.error) throw new Error(payload.error, { cause: error });
+    throw error;
+  }
 }
 
 async function fetchProductPage(product) {
-  if (!TEEPUBLIC_PRODUCTS.some((item) => item.value === product)) {
-    throw new Error('Loại sản phẩm không hợp lệ.');
-  }
-
-  const { data } = await axios.get('/api/teepublic-products', {
-    params: { product },
-    responseType: 'text',
-    timeout: 30000,
-  });
-  return data;
+  if (!TEEPUBLIC_PRODUCTS.some((item) => item.value === product)) throw new Error('Loại sản phẩm không hợp lệ.');
+  return requestSource('/api/teepublic-products', { product });
 }
 
 export async function fetchTrendingTags() {
-  const { data } = await axios.get('/api/teepublic-tags', {
-    responseType: 'text',
-    timeout: 30000,
-  });
-  return parseTrendingTags(data);
+  return parseTrendingTags(await requestSource('/api/teepublic-tags'));
 }
 
 export async function fetchBestSellers(product) {
