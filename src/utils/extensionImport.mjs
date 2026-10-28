@@ -1,6 +1,8 @@
 export function validateScan(input) {
   if (input?.schemaVersion !== 1 || input.source !== 'teepublic'
-    || !Array.isArray(input.products) || !input.products.length || input.products.length > 500
+    || !Array.isArray(input.products) || input.products.length > 500
+    || (!input.products.length && !(input.kind === 'tags' && Array.isArray(input.directoryTags) && input.directoryTags.length > 0))
+    || (input.kind === 'tags' && (!Array.isArray(input.directoryTags) || input.directoryTags.length > 500))
     || !Number.isFinite(Date.parse(input.scannedAt))) {
     throw new Error('File không phải phiên quét TeePublic hợp lệ (tối đa 500 mục).');
   }
@@ -18,6 +20,10 @@ export function validateScan(input) {
     sourceUrl: safeUrl(input.sourceUrl),
     pageTitle: text(input.pageTitle),
     scannedAt: new Date(input.scannedAt).toISOString(),
+    kind: input.kind === 'tags' ? 'tags' : 'products',
+    directoryTags: input.kind === 'tags' ? input.directoryTags.map((tag, index) => ({
+      keyword: text(tag.keyword), url: safeUrl(tag.url), rank: index + 1,
+    })) : [],
     products: input.products.map((product, index) => {
       if (!product || !Array.isArray(product.tags) || product.tags.length > 100) {
         throw new Error('Dữ liệu sản phẩm không hợp lệ.');

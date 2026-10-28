@@ -58,10 +58,10 @@ export function showTeePublicPanel(scan, summary) {
     counts.append(count);
   }
   content.append(counts, element('p', new Date(scan.scannedAt).toLocaleString('vi-VN'), 'source'));
-  content.append(element('h3', 'Top Tags trong mẫu đã quét'));
+  content.append(element('h3', scan.kind === 'tags' ? 'Trending Tags từ Tag Directory' : 'Top Tags trong mẫu đã quét'));
   const tags = element('div', undefined, 'tags');
   for (const item of summary.topTags.slice(0, 30)) {
-    tags.append(element('span', `${item.tag} (${item.count})`, 'tag'));
+    tags.append(element('span', item.rank ? `#${item.rank} ${item.tag}` : `${item.tag} (${item.count})`, 'tag'));
   }
   if (!summary.topTags.length) {
     tags.append(element('p', 'Chưa đọc được tag. Mở chi tiết thiết kế rồi bấm quét lại.'));
@@ -77,11 +77,28 @@ export function showTeePublicPanel(scan, summary) {
       status.textContent = 'Đã copy Top Tags.';
     } catch { status.textContent = 'Trình duyệt chưa cho phép copy. Bạn có thể chọn và sao chép tag trên bảng.'; }
   });
-  content.append(copy, status, element('h3', 'Người bán đọc được'));
+  content.append(copy, status);
+  if (scan.kind === 'tags') {
+    content.append(element('p', 'Đây là thứ tự tag trong Tag Directory của TeePublic, không phải lượt tìm kiếm.', 'note'));
+    panel.append(header, content);
+    root.append(panel);
+    document.documentElement.append(host);
+    return { shown: true };
+  }
+  content.append(element('h3', 'Người bán đọc được'));
   const authors = element('ol');
   summary.authors.slice(0, 10).forEach((item) => authors.append(element('li', `${item.author}: ${item.count} thiết kế`)));
   if (!summary.authors.length) authors.append(element('li', 'Chưa đọc được thông tin người bán.'));
-  content.append(authors, element('h3', 'Sản phẩm trên trang'));
+  const group = element('select');
+  group.setAttribute('aria-label', 'Chọn nhóm sản phẩm');
+  for (const [value, label] of [['all', 'Tất cả sản phẩm'], ['best-sellers', 'Best Sellers'], ['trending-today', 'Trending Today']]) {
+    const option = element('option', label);
+    option.value = value;
+    group.append(option);
+  }
+  const requested = new URLSearchParams(location.hash.slice(1)).get('spytee');
+  group.value = ['best-sellers', 'trending-today'].includes(requested) ? requested : 'all';
+  content.append(authors, element('h3', 'Sản phẩm trên trang'), group);
   const filter = element('input');
   filter.type = 'search';
   filter.placeholder = 'Lọc sản phẩm, người bán, tag...';
@@ -89,7 +106,8 @@ export function showTeePublicPanel(scan, summary) {
   const products = element('ol');
   const renderProducts = () => {
     products.replaceChildren();
-    const matches = scan.products.filter((item) => [item.title, item.author, item.mainTag, ...item.tags].join(' ').toLowerCase().includes(filter.value.toLowerCase()));
+    const matches = scan.products.filter((item) => (group.value === 'all' || item.section === group.value)
+      && [item.title, item.author, item.mainTag, ...item.tags].join(' ').toLowerCase().includes(filter.value.toLowerCase()));
     for (const item of matches) {
       const li = element('li');
       let safe = false;
@@ -105,13 +123,20 @@ export function showTeePublicPanel(scan, summary) {
       if (item.tags.length) li.append(element('small', item.tags.join(', ')));
       products.append(li);
     }
-    if (!matches.length) products.append(element('li', 'Không có sản phẩm phù hợp.'));
+    if (!matches.length) products.append(element('li', group.value !== 'all' && !scan.products.some((item) => item.section === group.value)
+      ? 'Chưa đọc được nhóm này trên trang. Đợi trang tải đủ hoặc chuyển sang Tất cả sản phẩm; SPYTEE không tự đoán nhóm.'
+      : 'Không có sản phẩm phù hợp.'));
   };
   filter.addEventListener('input', renderProducts);
+  group.addEventListener('change', renderProducts);
   renderProducts();
   content.append(filter, products, element('p', 'Dữ liệu chỉ từ trang vừa quét. Để cập nhật: cuộn tải thêm sản phẩm rồi bấm icon SPYTEE → Quét trang hiện tại. Tần suất tag không phải lượt tìm kiếm hoặc doanh số.', 'note'));
   panel.append(header, content);
   root.append(panel);
   document.documentElement.append(host);
+  if (group.value !== 'all') {
+    [...document.querySelectorAll('h1,h2,h3,h4')].find((node) => node.textContent.trim().toLowerCase()
+      === (group.value === 'best-sellers' ? 'best sellers' : 'trending today'))?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
   return { shown: true };
 }

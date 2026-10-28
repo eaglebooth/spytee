@@ -1,4 +1,19 @@
-# SPYTEE TeePublic Extension v0.3
+# SPYTEE TeePublic Extension v0.4
+
+## Mở đúng mục và tự spy
+
+Popup có chọn T-Shirt / Hoodie / Sticker / Mug và ba nút:
+
+- Trending Tags: mở `/tag-directory` (T-Shirt) hoặc `/tag-directory/hoodie`, `/tag-directory/stickers`, `/tag-directory/mug`.
+- Best Sellers: mở trang danh mục tương ứng và chọn nhóm Best Sellers trong bảng SPYTEE.
+- Trending Today: mở cùng trang danh mục và chọn nhóm Trending Today trong bảng SPYTEE.
+
+Best Sellers và Trending Today là các nhóm trên cùng trang; extension không dùng URL tìm kiếm giả.
+Khi bật **Tự spy khi mở TeePublic** (mặc định bật), extension đọc trang sau khi tải và cập nhật khi có thêm nội dung.
+Không tự mở hàng loạt trang hay tải lại để né xác minh. Nếu có Cloudflare, tự hoàn thành trong Chrome; sau khi trang hiện dữ liệu, extension quét tiếp.
+Tắt công tắc để chỉ quét thủ công. Đóng bảng để ẩn; bảng chỉ cập nhật khi dữ liệu trang thay đổi.
+Trang thiếu nhãn Best Sellers/Trending Today sẽ báo chưa đọc được nhóm, không tự chia theo 16/28 sản phẩm.
+Tag Directory lưu riêng dưới dạng tag và thứ tự, không giả thành sản phẩm hay search volume.
 
 ## Cài vào Chrome
 
@@ -33,9 +48,9 @@ Link production trong popup chỉ dùng được sau khi bản dashboard mới �
 
 ## Phạm vi dữ liệu
 
-- Chỉ quét trang đang mở khi người dùng bấm nút. Không tải hàng loạt trang, không tự chuyển trang.
+- Chỉ quét trang TeePublic bạn mở khi bật Tự spy hoặc bấm nút. Không tải hàng loạt trang, không tự chuyển trang.
 - Không đọc cookie, mật khẩu hoặc token. Không tự gửi dữ liệu; dashboard chỉ nhận kết quả khi bạn bấm nút nhận.
-- Chỉ xin activeTab, scripting, storage; không có quyền truy cập mọi website.
+- Dùng activeTab, scripting, storage và content scripts trên TeePublic/SPYTEE; không có quyền truy cập mọi website.
 - Sản phẩm được nhận diện từ URL TeePublic có ID thiết kế. Một thiết kế lặp trong cùng section chỉ ghi một lần.
 - Best Sellers / Trending Today chỉ gắn nhãn khi thấy heading tương ứng trên trang. Không chia danh sách theo giả định 16/28.
 - Main Tag/người bán để trống khi không đọc được. Không suy ra tag từ title hoặc description.

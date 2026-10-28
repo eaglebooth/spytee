@@ -19,13 +19,28 @@ export function summarize(products) {
   };
 }
 
-export function toCsv(products) {
+export function summarizeScan(scan) {
+  if (scan?.kind === 'tags') {
+    return {
+      designs: 0,
+      topTags: scan.directoryTags.map((item) => ({ tag: item.keyword, rank: item.rank, count: null })),
+      authors: [],
+    };
+  }
+  return summarize(scan?.products || []);
+}
+
+export function toCsv(products, directoryTags = []) {
   // Spreadsheet applications interpret these leading characters as formulas.
   const cell = (value) => {
     let text = String(value ?? '');
     if (/^[\s]*[=+@-]/.test(text)) text = `'${text}`;
     return `"${text.replace(/"/g, '""')}"`;
   };
+  if (directoryTags.length) {
+    return [['rank', 'keyword', 'url'], ...directoryTags.map((tag) => [tag.rank, tag.keyword, tag.url])]
+      .map((row) => row.map(cell).join(',')).join('\r\n');
+  }
   return [['section', 'rank', 'title', 'author', 'mainTag', 'tags', 'url'],
     ...products.map((p) => [p.section, p.rank, p.title, p.author, p.mainTag, p.tags.join(' | '), p.url])]
     .map((row) => row.map(cell).join(',')).join('\r\n');

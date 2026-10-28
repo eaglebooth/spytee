@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Alert, Button, Card, Empty, Input, message, Select, Space, Statistic, Table, Tag } from 'antd';
 import { Link } from 'react-router-dom';
-import { summarize } from '../../extension/research.mjs';
+import { summarizeScan } from '../../extension/research.mjs';
 import { validateScan } from '../utils/extensionImport.mjs';
 import { requestBrowserScan } from '../utils/browserBridge.mjs';
 
@@ -21,7 +21,9 @@ export default function TeepublicExtension() {
   const [receiving, setReceiving] = useState(false);
   const [bridgeError, setBridgeError] = useState('');
   const scan = history[selected];
-  const stats = summarize(scan?.products || []);
+  const stats = summarizeScan(scan);
+  const isDirectory = scan?.kind === 'tags';
+  const directoryTags = (scan?.directoryTags || []).filter((tag) => tag.keyword.toLowerCase().includes(filter.toLowerCase()));
   const products = (scan?.products || []).filter((item) =>
     [item.title, item.author, item.mainTag, ...item.tags].join(' ').toLowerCase().includes(filter.toLowerCase()));
 
@@ -32,7 +34,7 @@ export default function TeepublicExtension() {
     setHistory(next);
     setSelected(0);
     setBridgeError('');
-    message.success(`Đã nhận ${imported.products.length} sản phẩm. Ngày quét: ${new Date(imported.scannedAt).toLocaleString('vi-VN')}`);
+    message.success(`Đã nhận ${imported.kind === 'tags' ? imported.directoryTags.length + ' tag' : imported.products.length + ' sản phẩm'}. Ngày quét: ${new Date(imported.scannedAt).toLocaleString('vi-VN')}`);
   }
 
   async function receiveFromExtension() {
@@ -62,12 +64,12 @@ export default function TeepublicExtension() {
           <Space wrap>
             <h2 className="sy-title">TeePublic Extension</h2>
             <Link to="/teepublic">Về TeePublic Trend</Link>
-            <Button href="/downloads/spytee-teepublic-extension.zip?v=0.3.0" download>Tải extension Chrome 0.3 (.zip)</Button>
+            <Button href="/downloads/spytee-teepublic-extension.zip?v=0.4.0" download>Tải extension Chrome 0.4 (.zip)</Button>
             <Button type="primary" loading={receiving} onClick={receiveFromExtension}>Nhận kết quả trực tiếp từ extension</Button>
             <Button htmlType="button" onClick={() => document.getElementById('extension-json-file').click()}>Nhập JSON từ extension</Button>
             <input id="extension-json-file" type="file" accept=".json,application/json" hidden onChange={importFile} />
           </Space>
-          <p style={{ marginTop: 12 }}>Mở TeePublic → bấm icon SPYTEE → Quét trang hiện tại → quay lại đây và bấm Nhận kết quả trực tiếp từ extension. Không cần xuất JSON.</p>
+          <p style={{ marginTop: 12 }}>Bấm icon SPYTEE → chọn loại sản phẩm → chọn Trending Tags, Best Sellers hoặc Trending Today. Trang mở đúng vị trí và tự quét nếu bật Tự spy. Quay lại đây và bấm Nhận kết quả trực tiếp từ extension.</p>
           <p>Cài đặt: giải nén file ZIP → chrome://extensions → bật Developer mode → Load unpacked → chọn thư mục chứa manifest.json.</p>
           <p>Đã cài bản cũ: giải nén đè vào thư mục extension đang dùng, bấm Reload trong chrome://extensions rồi tải lại trang SPYTEE này.</p>
           <Alert type="info" showIcon title="Dữ liệu trong mẫu trang đã quét. Tần suất tag không phải lượt tìm kiếm; thứ tự sản phẩm không mặc định là thứ hạng bán chạy." />
@@ -76,16 +78,16 @@ export default function TeepublicExtension() {
         {!scan ? <Empty description="Chưa có phiên quét. Quét TeePublic bằng extension rồi bấm Nhận kết quả trực tiếp." /> : <>
           <Card className="sy-card" style={{ marginBottom: 14 }}>
             <Space wrap size={24}>
-              <Statistic title="Thiết kế riêng biệt" value={stats.designs} />
+              <Statistic title={isDirectory ? 'Tag Directory' : 'Thiết kế riêng biệt'} value={isDirectory ? stats.topTags.length : stats.designs} />
               <Statistic title="Tag đọc được" value={stats.topTags.length} />
               <Statistic title="Người bán đọc được" value={stats.authors.length} />
               <Select aria-label="Phiên quét" value={selected} style={{ minWidth: 230 }} onChange={setSelected}
-                options={history.map((item, index) => ({ value: index, label: `${new Date(item.scannedAt).toLocaleString('vi-VN')} (${item.products.length})` }))} />
+                options={history.map((item, index) => ({ value: index, label: `${new Date(item.scannedAt).toLocaleString('vi-VN')} (${item.kind === 'tags' ? item.directoryTags.length + ' tag' : item.products.length + ' sp'})` }))} />
             </Space>
             <p style={{ marginTop: 12 }}><a href={scan.sourceUrl} target="_blank" rel="noreferrer">{scan.pageTitle || scan.sourceUrl}</a></p>
           </Card>
           <Card className="sy-card" title="Top Tags trong mẫu" style={{ marginBottom: 14 }}>
-            {stats.topTags.length ? <Space wrap>{stats.topTags.slice(0, 50).map((item) => <Tag key={item.tag.toLowerCase()}>{item.tag}: {item.count}</Tag>)}</Space>
+            {stats.topTags.length ? <Space wrap>{stats.topTags.slice(0, 50).map((item) => <Tag key={item.tag.toLowerCase()}>{item.rank ? `#${item.rank} ${item.tag}` : `${item.tag}: ${item.count}`}</Tag>)}</Space>
               : <p>Trang chưa cung cấp tag đọc được. Quét trang chi tiết thiết kế để bổ sung.</p>}
           </Card>
           <Card className="sy-card" title="Người bán trong mẫu" style={{ marginBottom: 14 }}>
@@ -93,8 +95,11 @@ export default function TeepublicExtension() {
           </Card>
           <Card className="sy-card">
             <Input aria-label="Lọc sản phẩm" placeholder="Lọc sản phẩm, tag, người bán..." value={filter} onChange={(event) => setFilter(event.target.value)} style={{ marginBottom: 12 }} />
-            <Table dataSource={products} rowKey={(item) => `${item.section}:${item.type}:${item.id}:${item.rank}`} scroll={{ x: 800 }}
-              pagination={{ defaultPageSize: 20, showSizeChanger: true }} columns={[
+            <Table dataSource={isDirectory ? directoryTags : products} rowKey={(item) => isDirectory ? item.url : `${item.section}:${item.type}:${item.id}:${item.rank}`} scroll={{ x: 800 }}
+              pagination={{ defaultPageSize: 20, showSizeChanger: true }} columns={isDirectory ? [
+                { title: '#', dataIndex: 'rank', width: 55 },
+                { title: 'Trending Tag', dataIndex: 'keyword', render: (keyword, item) => <a href={item.url} target="_blank" rel="noreferrer">{keyword}</a> },
+              ] : [
                 { title: '#', dataIndex: 'rank', width: 55 },
                 { title: 'Nhóm trên trang', dataIndex: 'section', width: 150 },
                 { title: 'Thiết kế', dataIndex: 'title', render: (title, item) => <a href={item.url} target="_blank" rel="noreferrer">{title}</a> },

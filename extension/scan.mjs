@@ -21,6 +21,32 @@ export function scanTeePublicPage() {
     const match = url && new URL(url).pathname.match(/^\/([^/]+)\/(\d+)-([^/]+)/);
     return match ? { url, id: match[2], type: match[1], slug: match[3] } : null;
   };
+  if (/^\/tag-directory(?:\/|$)/.test(location.pathname)) {
+    const headings = [...document.querySelectorAll('h1,h2,h3,h4,h5')];
+    const marker = headings.find((node) => /automatically generated based on tag usage/i.test(node.textContent));
+    const directoryTitle = headings.find((node) => /tag directory/i.test(node.textContent));
+    const start = marker || directoryTitle;
+    if (!start) throw new Error('Chưa tìm thấy Tag Directory. Đợi trang TeePublic tải xong rồi thử lại.');
+    const end = headings.find((node) => /subscribe|support|similar designs/i.test(node.textContent)
+      && (start.compareDocumentPosition(node) & Node.DOCUMENT_POSITION_FOLLOWING));
+    const directoryTags = [];
+    const seenTags = new Set();
+    for (const link of document.querySelectorAll('a[href]')) {
+      if (!(start.compareDocumentPosition(link) & Node.DOCUMENT_POSITION_FOLLOWING)) continue;
+      if (end && !(link.compareDocumentPosition(end) & Node.DOCUMENT_POSITION_FOLLOWING)) continue;
+      if (link.closest('footer,nav,header')) continue;
+      const url = safeUrl(link.getAttribute('href'));
+      if (!url || productInfo(url) || !/^\/(?:t-shirts|hoodie|stickers|mug)\/[^/]+\/?$/.test(new URL(url).pathname)) continue;
+      const keyword = clean(link.textContent);
+      const normalized = keyword.toLowerCase();
+      if (!keyword || seenTags.has(normalized)) continue;
+      seenTags.add(normalized);
+      directoryTags.push({ keyword, url, rank: directoryTags.length + 1 });
+      if (directoryTags.length >= 500) break;
+    }
+    if (!directoryTags.length) throw new Error('Tag Directory chưa có tag đọc được. Đợi tải trang hoặc hoàn thành xác minh rồi thử lại.');
+    return { schemaVersion: 1, source: 'teepublic', kind: 'tags', sourceUrl: location.href, pageTitle: clean(document.title), scannedAt: new Date().toISOString(), products: [], directoryTags };
+  }
   const tagsFrom = (root) => [...new Set([...root.querySelectorAll('a[href]')]
     .filter((link) => {
       const url = safeUrl(link.getAttribute('href'));
@@ -30,12 +56,13 @@ export function scanTeePublicPage() {
   const products = [];
   const seen = new Set();
   const sections = [...document.querySelectorAll('h1,h2,h3,h4')]
-    .filter((node) => /^(best sellers|trending today)$/i.test(clean(node.textContent)));
+    .filter((node) => /^(best sellers|trending today|more categories|trending tags|similar designs|subscribe to our newsletter)$/i.test(clean(node.textContent)));
   const getSection = (element) => {
     let section = 'page';
     for (const heading of sections) {
       if (heading.compareDocumentPosition(element) & Node.DOCUMENT_POSITION_FOLLOWING) {
-        section = /best sellers/i.test(heading.textContent) ? 'best-sellers' : 'trending-today';
+        section = /^best sellers$/i.test(clean(heading.textContent)) ? 'best-sellers'
+          : /^trending today$/i.test(clean(heading.textContent)) ? 'trending-today' : 'page';
       }
     }
     return section;

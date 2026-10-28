@@ -4,6 +4,9 @@ import { scanTeePublicPage } from './extension/scan.mjs';
 import { summarize, toCsv } from './extension/research.mjs';
 import { validateScan } from './src/utils/extensionImport.mjs';
 import { showTeePublicPanel } from './extension/panel.mjs';
+import { summarizeScan } from './extension/research.mjs';
+import { getResearchUrl } from './extension/navigation.mjs';
+import { mountResearchLauncher } from './extension/launcher.mjs';
 const results = [];
 function check(name, fn) {
   try { fn(); results.push('PASS ' + name); }
@@ -105,6 +108,46 @@ check('panel rejects stale scans and renders untrusted titles as text', () => {
   let failed = false;
   try { run(doc, new URL('https://www.teepublic.com/mug'), result, summarize(result.products)); } catch { failed = true; }
   assert(failed);
+});
+check('directory scans exclude navigation, products and footer, and import as tags', () => {
+  const result = scan('<nav><a href="/t-shirts/ignore">Ignore</a></nav><h1>T-Shirt Tag Directory</h1><h4>The directory below has been automatically generated based on tag usage by third-party designers</h4><a href="/t-shirts/cat">Cat</a><a href="/t-shirts/cat">Cat</a><a href="/t-shirts/dog">Dog</a><a href="/t-shirt/123-product">Not a tag</a><h2>Subscribe to Our Newsletter</h2><a href="/t-shirts/footer">Footer</a>', 'https://www.teepublic.com/tag-directory#spytee=tags');
+  assert(result.kind === 'tags' && result.products.length === 0);
+  assert(result.directoryTags.length === 2 && result.directoryTags[0].keyword === 'Cat');
+  assert(validateScan(result).directoryTags.length === 2);
+  const summary = summarizeScan(result);
+  assert(summary.topTags[0].rank === 1 && summary.topTags[0].count === null);
+});
+check('shortcut URLs use real directories and marketplace category pages', () => {
+  assert(getResearchUrl('tags', 't-shirts') === 'https://www.teepublic.com/tag-directory#spytee=tags');
+  assert(getResearchUrl('tags', 'mug') === 'https://www.teepublic.com/tag-directory/mug#spytee=tags');
+  assert(getResearchUrl('best-sellers', 'hoodie') === 'https://www.teepublic.com/hoodie#spytee=best-sellers');
+  assert(getResearchUrl('trending-today', 'stickers') === 'https://www.teepublic.com/stickers#spytee=trending-today');
+});
+check('recommendations after More Categories are not labelled Trending Today', () => {
+  const result = scan('<h2>Trending Today</h2>' + card(110, 'Today', []) + '<h2>More Categories</h2>' + card(111, 'Other', []));
+  assert(result.products[0].section === 'trending-today' && result.products[1].section === 'page');
+});
+check('panel opens the requested group and does not mix products', () => {
+  const result = scan('<h2>Best Sellers</h2>' + card(112, 'BestOnly', []) + '<h2>Trending Today</h2>' + card(113, 'TodayOnly', []), 'https://www.teepublic.com/t-shirts#spytee=trending-today');
+  const doc = document.implementation.createHTMLDocument('Grouped panel');
+  const run = new Function('document', 'location', 'scan', 'summary', `return (${showTeePublicPanel.toString()})(scan, summary);`);
+  run(doc, new URL(result.sourceUrl), result, summarizeScan(result));
+  const root = doc.getElementById('spytee-teepublic-panel').shadowRoot;
+  assert(root.querySelector('select').value === 'trending-today');
+  assert(root.querySelector('a').textContent === 'TodayOnly');
+});
+check('homepage launcher contains all three links and updates the product type', () => {
+  const doc = document.implementation.createHTMLDocument('Homepage');
+  mountResearchLauncher(doc);
+  mountResearchLauncher(doc);
+  assert(doc.querySelectorAll('#spytee-teepublic-launcher').length === 1);
+  const root = doc.getElementById('spytee-teepublic-launcher').shadowRoot;
+  assert(root.querySelectorAll('a').length === 3);
+  const select = root.querySelector('select');
+  select.value = 'mug'; select.dispatchEvent(new Event('change'));
+  assert(root.querySelector('a').href === 'https://www.teepublic.com/tag-directory/mug#spytee=tags');
+  root.querySelector('button').click();
+  assert(root.querySelector('button').getAttribute('aria-expanded') === 'true');
 });
 document.getElementById('output').textContent = results.join('\n');
 document.body.dataset.result = results.some(r => r.startsWith('FAIL')) ? 'FAIL' : 'PASS';

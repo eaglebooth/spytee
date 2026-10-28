@@ -3,7 +3,15 @@
 <head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>SPYTEE TeePublic</title><link rel="stylesheet" href="popup.css"></head>
 <body>
   <header><strong>SPYTEE</strong><span>TeePublic Research</span></header>
-  <p>Quét sản phẩm và tag trên trang TeePublic đang mở.</p>
+  <p>Chọn mục bên dưới, SPYTEE mở đúng trang TeePublic và tự quét khi tải xong.</p>
+  <label for="product">Loại sản phẩm</label>
+  <select id="product"><option value="t-shirts">T-Shirt</option><option value="hoodie">Hoodie</option><option value="stickers">Sticker</option><option value="mug">Mug</option></select>
+  <div class="shortcuts">
+    <button data-research="tags">Trending Tags</button>
+    <button data-research="best-sellers">Best Sellers</button>
+    <button data-research="trending-today">Trending Today</button>
+  </div>
+  <label class="toggle"><input id="auto-scan" type="checkbox" checked> Tự spy khi mở TeePublic</label>
   <button id="scan">Quét trang hiện tại</button>
   <p id="status" role="status" aria-live="polite">Chưa có phiên quét.</p>
   <section id="result" hidden>
@@ -19,7 +27,7 @@
   </section>
   <label for="history">Lịch sử trên máy này</label><select id="history"><option value="">Chọn phiên quét</option></select>
   <button id="clear" class="secondary">Xóa lịch sử</button>
-  <a href="https://spytee.vercel.app/teepublic-extension" target="_blank" rel="noreferrer">Mở dashboard nhập JSON</a>
-  <footer>Chỉ đọc nội dung trang khi bạn bấm quét. Không đọc cookie, không tự gửi dữ liệu lên server. Cuộn trang để tải thêm sản phẩm rồi quét lại. Không có số lượt tìm kiếm hoặc doanh số.</footer>
+  <a href="https://spytee.vercel.app/teepublic-extension" target="_blank" rel="noreferrer">Mở dashboard nhận dữ liệu trực tiếp</a>
+  <footer>Chỉ đọc trang TeePublic bạn mở, không tự chuyển nhiều trang. Cuộn để tải thêm sản phẩm. Nếu có xác minh, hoàn thành trong Chrome; SPYTEE đợi trang tải rồi quét. Không đọc cookie hoặc lấy số lượt tìm kiếm/doanh số.</footer>
   <script type="module" src="popup.mjs"></script>
 </body></html>
