@@ -1,0 +1,76 @@
+<!doctype html><html><head><meta charset="utf-8"><title>SPYTEE browser checks</title></head><body><pre id="output">RUNNING</pre>
+<script type="module">
+import { scanTeePublicPage } from './extension/scan.mjs';
+import { summarize, toCsv } from './extension/research.mjs';
+import { validateScan } from './src/utils/extensionImport.mjs';
+const results = [];
+function check(name, fn) {
+  try { fn(); results.push('PASS ' + name); }
+  catch (error) { results.push('FAIL ' + name + ': ' + error.message); }
+}
+function assert(value, message = 'Assertion failed') { if (!value) throw new Error(message); }
+function scan(html, href = 'https://www.teepublic.com/t-shirts/cats') {
+  const doc = document.implementation.createHTMLDocument('Fixture');
+  doc.body.innerHTML = html;
+  const run = new Function('document', 'location', 'Node', `return (${scanTeePublicPage.toString()})();`);
+  return run(doc, new URL(href), Node);
+}
+const card = (id, title, tags, author = '') => `<article class="design-card"><a href="/t-shirt/${id}-design"><img alt="${title}"></a><a href="/t-shirt/${id}-design">${title}</a>${tags.map(t => `<a href="/t-shirts/${t}">${t}</a>`).join('')}${author ? `<a href="/user/${author}">${author}</a>` : ''}</article>`;
+check('deduplicate links, isolate tags, preserve sections', () => {
+  const result = scan('<h2>Best Sellers</h2>' + card(101, 'A', ['cat', 'cat'], 'Alice') + '<h2>Trending Today</h2>' + card(102, 'B', ['dog'], 'Bob'));
+  assert(result.products.length === 2);
+  assert(result.products[0].tags.join(',') === 'cat');
+  assert(result.products[1].tags.join(',') === 'dog');
+  assert(result.products[0].section === 'best-sellers');
+  assert(result.products[1].section === 'trending-today');
+  assert(result.products[1].rank === 1);
+  assert(result.products[0].author === 'Alice');
+  assert(result.products[0].mainTag === '');
+});
+check('no guessing sections without headings', () => {
+  const result = scan(card(103, 'C', []));
+  assert(result.products[0].section === 'page');
+});
+check('same design in two sections counts once in tag frequency', () => {
+  const result = scan('<h2>Best Sellers</h2>' + card(104, 'D', ['cat']) + '<h2>Trending Today</h2>' + card(104, 'D', ['cat']));
+  assert(result.products.length === 2);
+  assert(summarize(result.products).designs === 1);
+  assert(summarize(result.products).topTags[0].count === 1);
+});
+check('detail page uses page tags and h1', () => {
+  const result = scan('<main><h1>Detail title</h1><div class="design-tags"><a href="/t-shirts/cat">cat</a></div></main>', 'https://www.teepublic.com/t-shirt/105-detail');
+  assert(result.products.length === 1 && result.products[0].section === 'detail');
+  assert(result.products[0].title === 'Detail title');
+  assert(result.products[0].tags[0] === 'cat');
+});
+check('reject non-TeePublic pages', () => {
+  let failed = false;
+  try { scan(card(100, 'X', []), 'https://example.com'); } catch { failed = true; }
+  assert(failed);
+});
+check('reject empty challenge page', () => {
+  let failed = false;
+  try { scan('<h1>Verify you are human</h1>'); } catch { failed = true; }
+  assert(failed);
+});
+check('reject challenge even on a detail URL', () => {
+  let failed = false;
+  try { scan('<h1>Verify you are human</h1>', 'https://www.teepublic.com/t-shirt/105-detail'); } catch { failed = true; }
+  assert(failed);
+});
+check('import round trip and reject unsafe links', () => {
+  const result = scan(card(106, 'E', ['cat']));
+  assert(validateScan(JSON.parse(JSON.stringify(result))).products.length === 1);
+  result.products[0].url = 'javascript:alert(1)';
+  let failed = false;
+  try { validateScan(result); } catch { failed = true; }
+  assert(failed);
+});
+check('CSV escapes quotes and neutralizes formulas', () => {
+  const result = scan(card(107, '=SUM(1)', []));
+  result.products[0].title = '=SUM(1)';
+  assert(toCsv(result.products).includes("\"'=SUM(1)\""));
+});
+document.getElementById('output').textContent = results.join('\n');
+document.body.dataset.result = results.some(r => r.startsWith('FAIL')) ? 'FAIL' : 'PASS';
+</script></body></html>

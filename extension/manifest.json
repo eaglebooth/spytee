@@ -1,0 +1,9 @@
+{
+  "manifest_version": 3,
+  "name": "SPYTEE - TeePublic Research",
+  "version": "0.1.0",
+  "description": "Scan products and tags on the TeePublic page you open. Save research locally and export it to SPYTEE.",
+  "permissions": ["activeTab", "scripting", "storage"],
+  "action": { "default_popup": "popup.html", "default_title": "SPYTEE TeePublic" },
+  "content_security_policy": { "extension_pages": "script-src 'self'; object-src 'none'" }
+}
